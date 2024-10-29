@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sqlalchemy
+pydub
+requests
+streamlit
+openai
+python-dotenv
+audio-recorder-streamlit

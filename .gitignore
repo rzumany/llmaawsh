@@ -1,0 +1,9 @@
+audio_responses/*
+!audio_responses/initfile.txt
+
+audio_query/*
+!audio_query/initfile.txt
+
+**/__pycache__/
+
+.env
