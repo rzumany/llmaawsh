@@ -3,8 +3,8 @@ import requests
 from io import BytesIO
 from audio_recorder_streamlit import audio_recorder
 import time
+import base64
 
-# from datetime import timedelta
 
 API_URL = "http://localhost:8000"
 
@@ -36,7 +36,21 @@ def get_messages():
 
 st.title("Voice Chat with AI")
 
-# Регистрация и авторизация
+
+def autoplay_audio(file_path: str):
+    with open(file_path, "rb") as f:
+        data = f.read()
+        b64 = base64.b64encode(data).decode()
+        md = f"""
+            <audio controls autoplay="true">
+            <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
+            </audio>
+            """
+        st.markdown(
+            md,
+            unsafe_allow_html=True,
+        )
+
 
 if "access_token" not in st.session_state:
     username = st.text_input("Username")
@@ -67,9 +81,14 @@ if "access_token" in st.session_state:
             time.sleep(1)
             st.rerun()
 
-    for message in messages:
-        st.audio(f"./audio_query/{message['audio_id']}.wav")
-        st.audio(f"./audio_responses/{message['audio_id']}.mp3")
+    for message in range(len(messages)):
+        st.audio(f"./audio_query/{messages[message]['audio_id']}.wav")
+        if message == len(messages) - 1:
+            autoplay_audio(
+                f"./audio_responses/{messages[message]['audio_id']}.mp3"
+            )
+        else:
+            st.audio(f"./audio_responses/{messages[message]['audio_id']}.mp3")
 
     # st.write(messages)
     audio_bytes = None
