@@ -13,3 +13,18 @@ Our project will also enable voice commands to add tasks to the calendar. It wil
 Technologies: Python, Whisper, TTS, ChatGPT, LLaMA.
 
 We look forward to your feedback and contributions!
+
+# Prerequisites
+
+1. Set Up Google Cloud Project
+
+  * Go to the Google Cloud Console.
+  * Create a new project.
+  * Enable the Google Calendar API for that project.
+
+2. Create Credentials
+
+  * Navigate to the "Credentials" section.
+  * Create credentials for a "OAuth 2.0 Client ID".
+  * Download the JSON file with your credentials.
+  
