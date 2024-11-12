@@ -31,6 +31,17 @@ from passlib.context import CryptContext
 import traceback
 import json
 
+from google_functions import (
+    check_token_for_valid,
+    set_google_token_,
+    return_service,
+    list_events,
+    add_event,
+    delete_event,
+    edit_event,
+    show_event,
+)
+
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY", "mysecret")
@@ -46,15 +57,9 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 api_key_openai = os.getenv("OPENAI_API_KEY")
 
+from llm_prompts import full_system_string
 
-system_string = """You are a person's assistant in filling his Google Calendar. You need to get all the necessary information, once you have received the information - you must choose one function from [insert, list, move, update, delete]
-
-Your answer must be the json (without anything more) and has the following structure (Don’t forget to double-check that you didn’t put incorrect characters inside the json, such as double quotes, and that you placed parentheses and commas correctly!):
-{
-    "text":<Reply to the user in the same language in which he contacted>,
-    "function":choose the right one from <[insert, list, move, update, delete], if nothing matches - ''>
-}
-"""
+system_string = full_system_string
 
 
 def get_openai_client(api_key=api_key_openai):
@@ -72,7 +77,6 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 
-# Функции для токенов
 def create_access_token(
     data: dict,
     expires_delta: timedelta = None,
@@ -81,7 +85,7 @@ def create_access_token(
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.utcnow() + timedelta(minutes=180)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(
         to_encode,
@@ -215,11 +219,24 @@ async def process_audio(
 
     old_messages = get_messages(db, token)
 
-    convo = [{"role": "system", "content": system_string}]
+    time_definition = datetime.now()
+
+    convo = [
+        {
+            "role": "system",
+            "content": system_string.replace(
+                "<time definition>", str(time_definition)
+            ),
+        }
+    ]
 
     for message in old_messages:
-        convo.append({"role": "user", "content": message.user_text})
-        convo.append({"role": "assistant", "content": message.gpt_response})
+        if message.user_text:
+            convo.append({"role": "user", "content": message.user_text})
+        if message.gpt_response:
+            convo.append(
+                {"role": "assistant", "content": message.gpt_response}
+            )
     convo.append({"role": "user", "content": transcription_text})
 
     response = client.chat.completions.create(
@@ -230,19 +247,103 @@ async def process_audio(
     gpt_response_json = json.loads(gpt_response)
     gpt_text = gpt_response_json["text"]
     gpt_function = gpt_response_json["function"]
+    gpt_helper_function = gpt_response_json["helper_function"]
     print(gpt_response)
     print(gpt_text)
     print(gpt_function)
 
-    audio_response = client.audio.speech.create(
-        model="tts-1",
-        voice="onyx",
-        input=gpt_text,
-    )
-    create_message(db, token.id, transcription_text, gpt_response, audio_id)
+    if gpt_text:
+        audio_response = client.audio.speech.create(
+            model="tts-1",
+            voice="onyx",
+            input=gpt_text,
+        )
 
     audio_path = f"./audio_responses/{audio_id}.mp3"
 
     audio_response.stream_to_file(audio_path)
 
+    create_message(db, token.id, transcription_text, gpt_response, audio_id)
+
+    while gpt_function:
+        service = return_service(db, token)
+        print(service)
+        result = eval(gpt_function)
+        print(result)
+        if gpt_helper_function:
+            convo.append(
+                {
+                    "role": "user",
+                    "content": "Requested Information: " + str(result),
+                }
+            )
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=convo,
+            )
+            gpt_response = (
+                response.choices[0].message.content.strip("`").strip("json")
+            )
+            gpt_response_json = json.loads(gpt_response)
+            gpt_text = gpt_response_json["text"]
+            gpt_function = gpt_response_json["function"]
+            gpt_helper_function = gpt_response_json["helper_function"]
+            print(gpt_response)
+            print(gpt_text)
+            print(gpt_function)
+            audio_id = len(get_all_messages(db))
+            audio_response = client.audio.speech.create(
+                model="tts-1",
+                voice="onyx",
+                input=gpt_text,
+            )
+            audio_path = f"./audio_responses/{audio_id}.mp3"
+
+            audio_response.stream_to_file(audio_path)
+            create_message(
+                db,
+                token.id,
+                "Requested Information: " + str(result),
+                gpt_response,
+                audio_id,
+            )
+
     return FileResponse(audio_path, media_type="audio/mpeg")
+
+
+@app.get("/get_user_info/")
+async def get_user_info(
+    db: Session = Depends(get_db),
+    token: str = Depends(get_current_user),
+):
+    print(token)
+    # user = get_user_by_username(db, username)
+    if token:
+        return token
+
+
+@app.post("/check_google_token/")
+async def check_google_token(
+    db: Session = Depends(get_db),
+    token: str = Depends(get_current_user),
+):
+    # user = get_user_by_username(db, username)
+    res = check_token_for_valid(db, token)
+    return res
+
+
+@app.post("/set_google_token/")
+async def set_google_token(
+    db: Session = Depends(get_db),
+    token: str = Depends(get_current_user),
+    request: Request = None,
+):
+    json_body = await request.json()
+    google_token = json_body["google_token"]
+    set_google_token_(db, token, google_token)
+
+
+# def set_user_token
+
+
+# def init_google_calendar():

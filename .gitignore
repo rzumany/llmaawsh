@@ -7,3 +7,6 @@ audio_query/*
 **/__pycache__/
 
 .env
+
+*.db
+cred*
