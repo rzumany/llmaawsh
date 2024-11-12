@@ -13,3 +13,10 @@ Our project will also enable voice commands to add tasks to the calendar. It wil
 Technologies: Python, Whisper, TTS, ChatGPT, LLaMA.
 
 We look forward to your feedback and contributions!
+
+Необходимы
+credentials2.json из тестового аккаунта
+
+Запуск
+uvicorn main:app --reload
+streamlit run streamlit_frontend.py
