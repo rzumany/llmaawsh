@@ -22,7 +22,8 @@ class User(Base):
 
 
     need_google_token = Column(Boolean, default=True)
-
+    last_interaction = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_active = Column(Boolean, default=False)  # Новое поле
 
 class Message(Base):
     __tablename__ = "messages"
@@ -32,3 +33,4 @@ class Message(Base):
     gpt_response = Column(Text)
     timestamp = Column(DateTime, default=datetime.utcnow)
     audio_id = Column(Integer, nullable=True)
+    is_proactive = Column(Boolean, default=False)  # Новое поле для различия типов сообщений

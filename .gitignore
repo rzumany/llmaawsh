@@ -10,3 +10,7 @@ audio_query/*
 
 *.db
 cred*
+token*
+
+trash.py
+test.py

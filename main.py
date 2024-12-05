@@ -15,7 +15,7 @@ from jose import JWTError, jwt
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
-from database import get_db, engine
+from database import get_db, get_standart_db, engine
 from models import Base, User
 from crud import (
     create_user,
@@ -24,6 +24,9 @@ from crud import (
     get_user_by_username,
     get_messages,
     get_all_messages,
+    set_user_active,
+    set_user_inactive,
+    get_all_inactive_users,
 )
 from io import BytesIO
 from passlib.context import CryptContext
@@ -42,8 +45,14 @@ from google_functions import (
     show_event,
 )
 
+from apscheduler.schedulers.background import BackgroundScheduler
 
-load_dotenv()
+load_dotenv('.env')
+
+proxy_url = os.getenv("PROXY_URL")
+os.environ["HTTP_PROXY"] = proxy_url
+os.environ["HTTPS_PROXY"] = proxy_url
+
 SECRET_KEY = os.getenv("SECRET_KEY", "mysecret")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -175,10 +184,23 @@ async def login(
             detail="Invalid username or password",
         )
     access_token = create_access_token(data={"sub": user.username})
+
+    # Устанавливаем флаг is_active при успешном входе
+    set_user_active(db, user.id)
+    
     return {
         "access_token": access_token,
         "token_type": "bearer",
     }
+
+
+@app.post("/logout/")
+async def logout(
+    db: Session = Depends(get_db),
+    token: str = Depends(get_current_user),
+):
+    set_user_inactive(db, token.id)
+    return {"msg": "Logged out successfully"}
 
 
 @app.get("/get_chat_messages/")
@@ -232,7 +254,7 @@ async def process_audio(
 
     for message in old_messages:
         if message.user_text:
-            convo.append({"role": "user", "content": message.user_text})
+            convo.append({"role": "user", "content": message.user_text + f"\nMessage time: {message.timestamp}"})
         if message.gpt_response:
             convo.append(
                 {"role": "assistant", "content": message.gpt_response}
@@ -248,9 +270,11 @@ async def process_audio(
     gpt_text = gpt_response_json["text"]
     gpt_function = gpt_response_json["function"]
     gpt_helper_function = gpt_response_json["helper_function"]
-    print(gpt_response)
-    print(gpt_text)
-    print(gpt_function)
+    print('gpt_response: ', gpt_response)
+    print('gpt_text: ', gpt_text)
+    print('gpt_function: ', gpt_function)
+
+    audio_path = f"./audio_responses/{audio_id}.mp3"
 
     if gpt_text:
         audio_response = client.audio.speech.create(
@@ -259,9 +283,7 @@ async def process_audio(
             input=gpt_text,
         )
 
-    audio_path = f"./audio_responses/{audio_id}.mp3"
-
-    audio_response.stream_to_file(audio_path)
+        audio_response.stream_to_file(audio_path)
 
     create_message(db, token.id, transcription_text, gpt_response, audio_id)
 
@@ -307,6 +329,8 @@ async def process_audio(
                 gpt_response,
                 audio_id,
             )
+        else:
+            break
 
     return FileResponse(audio_path, media_type="audio/mpeg")
 
@@ -343,7 +367,158 @@ async def set_google_token(
     set_google_token_(db, token, google_token)
 
 
+# Новый маршрут для установки флага is_active
+@app.post("/set_active/")
+async def set_active(
+    db: Session = Depends(get_db),
+    token: str = Depends(get_current_user),
+):
+    set_user_active(db, token.id)
+    return {"msg": "User set to active"}
+
+# Новый маршрут для сброса флага is_active
+@app.post("/set_inactive/")
+async def set_inactive(
+    db: Session = Depends(get_db),
+    token: str = Depends(get_current_user),
+):
+    set_user_inactive(db, token.id)
+    return {"msg": "User set to inactive"}
+
+
 # def set_user_token
-
-
 # def init_google_calendar():
+
+import atexit
+from apscheduler.schedulers.background import BackgroundScheduler
+from database import SessionLocal
+
+# Инициализация APScheduler
+scheduler = BackgroundScheduler()
+scheduler.start()
+
+# Завершение работы планировщика при остановке приложения
+atexit.register(lambda: scheduler.shutdown())
+
+minutes = 1
+
+def send_proactive_messages(
+    db: Session = get_standart_db()
+    ):
+    try:
+        
+        # Выбираем пользователей, которые активны и не проявляли активности более 2 минут
+        inactive_users = get_all_inactive_users(db, minutes=minutes)
+
+        for user in inactive_users:
+            print('---for user in inactive_users---')
+
+            audio_id = len(get_all_messages(db))
+
+            # Формирование истории сообщений для контекста
+            messages = get_messages(db, user)
+            convo = [
+                {
+                    "role": "system",
+                    "content": system_string.replace(
+                        "<time definition>", str(datetime.utcnow())
+                    ),
+                }
+            ]
+
+            for message in messages:
+                if message.user_text:
+                    convo.append({"role": "user", "content": message.user_text + f"\nMessage time: {message.timestamp}"})
+                if message.gpt_response:
+                    convo.append({"role": "assistant", "content": message.gpt_response})
+
+            # Добавляем вопрос к ChatGPT
+
+            query = """Based on the current correspondence, decide whether you need to write a new message to the user. If you consider it necessary to continue the dialogue without the necessary data from google calendar, set helper_function to false, otherwise set helper_function to true. In case helper_function==true there is no need to write any text! For example, call list_events by setting "helper_fucntion" to true, and then I will give you the requested information in the next message."""
+            convo.append({"role": "user", "content": query})
+
+            client = get_openai_client()
+            print('---client.chat.completions.create---')
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=convo,
+            )
+            # gpt_response = response.choices[0].message.content.strip()
+            gpt_response = response.choices[0].message.content.strip("`").strip("json")
+            gpt_response_json = json.loads(gpt_response)
+            gpt_text = gpt_response_json["text"]
+            gpt_function = gpt_response_json["function"]
+            gpt_helper_function = gpt_response_json["helper_function"]
+            print('gpt_response: ', gpt_response)
+            print('gpt_text: ', gpt_text)
+            print('gpt_function: ', gpt_function)
+
+            audio_path = f"./audio_responses/{audio_id}.mp3"
+
+            if gpt_text:
+                audio_response = client.audio.speech.create(
+                    model="tts-1",
+                    voice="onyx",
+                    input=gpt_text,
+                )
+
+                audio_response.stream_to_file(audio_path)
+
+            #create_message(db, token.id, transcription_text, gpt_response, audio_id)
+            create_message(db, user.id, query, gpt_response, audio_id, is_proactive=True)
+            
+            while gpt_function:
+                service = return_service(db, user)
+                print(service)
+                result = eval(gpt_function)
+                print(result)
+                if gpt_helper_function:
+                    convo.append(
+                        {
+                            "role": "user",
+                            "content": "Requested Information: " + str(result),
+                        }
+                    )
+                    response = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=convo,
+                    )
+                    gpt_response = (
+                        response.choices[0].message.content.strip("`").strip("json")
+                    )
+                    gpt_response_json = json.loads(gpt_response)
+                    gpt_text = gpt_response_json["text"]
+                    gpt_function = gpt_response_json["function"]
+                    gpt_helper_function = gpt_response_json["helper_function"]
+                    print(gpt_response)
+                    print(gpt_text)
+                    print(gpt_function)
+                    audio_id = len(get_all_messages(db))
+                    audio_response = client.audio.speech.create(
+                        model="tts-1",
+                        voice="onyx",
+                        input=gpt_text,
+                    )
+                    audio_path = f"./audio_responses/{audio_id}.mp3"
+
+                    audio_response.stream_to_file(audio_path)
+                    create_message(
+                        db,
+                        user.id,
+                        "Requested Information: " + str(result),
+                        gpt_response,
+                        audio_id,
+                    )
+                else:
+                    break
+
+            return FileResponse(audio_path, media_type="audio/mpeg")
+
+    except Exception as e:
+        print(f"Error in send_proactive_messages: {e}")
+        print(traceback.format_exc())
+    finally:
+        db.close()
+
+# Планирование задачи каждые 1 минуту
+scheduler.add_job(send_proactive_messages, 'interval', minutes=1)

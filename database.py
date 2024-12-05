@@ -16,3 +16,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def get_standart_db():
+    return SessionLocal()
+
