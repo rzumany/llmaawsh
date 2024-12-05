@@ -5,12 +5,15 @@ from datetime import datetime, timedelta
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 def get_all_inactive_users(db: Session, minutes=2):
     threshold_time = datetime.utcnow() - timedelta(minutes=minutes)
-    return db.query(User).filter(
-            User.is_active == True,
-            User.last_interaction < threshold_time
-        ).all()
+    return (
+        db.query(User)
+        .filter(User.is_active == True, User.last_interaction < threshold_time)
+        .all()
+    )
+
 
 def get_user_by_username(db: Session, username: str):
     return db.query(User).filter(User.username == username).first()
@@ -38,14 +41,14 @@ def create_message(
     user_text: str,
     gpt_response: str,
     audio_id,
-    is_proactive: bool = False
+    is_proactive: bool = False,
 ):
     message = Message(
         user_id=user_id,
         user_text=user_text,
         gpt_response=gpt_response,
         audio_id=audio_id,
-        is_proactive=is_proactive
+        is_proactive=is_proactive,
     )
     db.add(message)
     user = db.query(User).filter(User.id == user_id).first()

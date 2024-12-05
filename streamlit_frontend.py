@@ -109,6 +109,7 @@ if "access_token" not in st.session_state:
 try:
     if "access_token" in st.session_state:
         user = get_user_info_by_token()
+        st.subheader(user["username"])
         st.write(user)
 
         res = check_google_token()

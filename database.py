@@ -17,6 +17,6 @@ def get_db():
     finally:
         db.close()
 
+
 def get_standart_db():
     return SessionLocal()
-

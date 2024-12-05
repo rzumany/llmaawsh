@@ -15,7 +15,7 @@ Technologies: Python, Whisper, TTS, ChatGPT, LLaMA.
 We look forward to your feedback and contributions!
 
 Необходимы
-credentials2.json из тестового аккаунта
+credentials.json из тестового аккаунта
 
 Запуск
 uvicorn main:app --reload

@@ -47,11 +47,11 @@ from google_functions import (
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-load_dotenv('.env')
+load_dotenv(".env")
 
-proxy_url = os.getenv("PROXY_URL")
-os.environ["HTTP_PROXY"] = proxy_url
-os.environ["HTTPS_PROXY"] = proxy_url
+# proxy_url = os.getenv("PROXY_URL")
+# os.environ["HTTP_PROXY"] = proxy_url
+# os.environ["HTTPS_PROXY"] = proxy_url
 
 SECRET_KEY = os.getenv("SECRET_KEY", "mysecret")
 ALGORITHM = "HS256"
@@ -187,7 +187,7 @@ async def login(
 
     # Устанавливаем флаг is_active при успешном входе
     set_user_active(db, user.id)
-    
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -254,7 +254,13 @@ async def process_audio(
 
     for message in old_messages:
         if message.user_text:
-            convo.append({"role": "user", "content": message.user_text + f"\nMessage time: {message.timestamp}"})
+            convo.append(
+                {
+                    "role": "user",
+                    "content": message.user_text
+                    + f"\nMessage time: {message.timestamp}",
+                }
+            )
         if message.gpt_response:
             convo.append(
                 {"role": "assistant", "content": message.gpt_response}
@@ -270,9 +276,9 @@ async def process_audio(
     gpt_text = gpt_response_json["text"]
     gpt_function = gpt_response_json["function"]
     gpt_helper_function = gpt_response_json["helper_function"]
-    print('gpt_response: ', gpt_response)
-    print('gpt_text: ', gpt_text)
-    print('gpt_function: ', gpt_function)
+    print("gpt_response: ", gpt_response)
+    print("gpt_text: ", gpt_text)
+    print("gpt_function: ", gpt_function)
 
     audio_path = f"./audio_responses/{audio_id}.mp3"
 
@@ -290,13 +296,21 @@ async def process_audio(
     while gpt_function:
         service = return_service(db, token)
         print(service)
-        result = eval(gpt_function)
-        print(result)
+        gpt_functions = gpt_function.split(";")
+        summary_result = ""
+        for x in gpt_functions:
+            try:
+                result = eval(x)
+            except:
+                result = str(traceback.format_exc())
+            print(result)
+            summary_result += str(result)
+            summary_result += "\n"
         if gpt_helper_function:
             convo.append(
                 {
                     "role": "user",
-                    "content": "Requested Information: " + str(result),
+                    "content": "Requested Information: " + str(summary_result),
                 }
             )
             response = client.chat.completions.create(
@@ -325,7 +339,7 @@ async def process_audio(
             create_message(
                 db,
                 token.id,
-                "Requested Information: " + str(result),
+                "Requested Information: " + str(summary_result),
                 gpt_response,
                 audio_id,
             )
@@ -376,6 +390,7 @@ async def set_active(
     set_user_active(db, token.id)
     return {"msg": "User set to active"}
 
+
 # Новый маршрут для сброса флага is_active
 @app.post("/set_inactive/")
 async def set_inactive(
@@ -402,21 +417,28 @@ atexit.register(lambda: scheduler.shutdown())
 
 minutes = 1
 
-def send_proactive_messages(
-    db: Session = get_standart_db()
-    ):
+
+def send_proactive_messages(db: Session = get_standart_db()):
     try:
-        
+
         # Выбираем пользователей, которые активны и не проявляли активности более 2 минут
         inactive_users = get_all_inactive_users(db, minutes=minutes)
 
         for user in inactive_users:
-            print('---for user in inactive_users---')
+            print(user.username)
+            print("---for user in inactive_users---")
 
             audio_id = len(get_all_messages(db))
-
+            
             # Формирование истории сообщений для контекста
             messages = get_messages(db, user)
+
+            try:
+                if messages[-1].is_proactive and messages[-1].gpt_response:
+                    continue
+            except:
+                pass
+
             convo = [
                 {
                     "role": "system",
@@ -428,9 +450,17 @@ def send_proactive_messages(
 
             for message in messages:
                 if message.user_text:
-                    convo.append({"role": "user", "content": message.user_text + f"\nMessage time: {message.timestamp}"})
+                    convo.append(
+                        {
+                            "role": "user",
+                            "content": message.user_text
+                            + f"\nMessage time: {message.timestamp}",
+                        }
+                    )
                 if message.gpt_response:
-                    convo.append({"role": "assistant", "content": message.gpt_response})
+                    convo.append(
+                        {"role": "assistant", "content": message.gpt_response}
+                    )
 
             # Добавляем вопрос к ChatGPT
 
@@ -438,20 +468,22 @@ def send_proactive_messages(
             convo.append({"role": "user", "content": query})
 
             client = get_openai_client()
-            print('---client.chat.completions.create---')
+            print("---client.chat.completions.create---")
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=convo,
             )
             # gpt_response = response.choices[0].message.content.strip()
-            gpt_response = response.choices[0].message.content.strip("`").strip("json")
+            gpt_response = (
+                response.choices[0].message.content.strip("`").strip("json")
+            )
             gpt_response_json = json.loads(gpt_response)
             gpt_text = gpt_response_json["text"]
             gpt_function = gpt_response_json["function"]
             gpt_helper_function = gpt_response_json["helper_function"]
-            print('gpt_response: ', gpt_response)
-            print('gpt_text: ', gpt_text)
-            print('gpt_function: ', gpt_function)
+            print("gpt_response: ", gpt_response)
+            print("gpt_text: ", gpt_text)
+            print("gpt_function: ", gpt_function)
 
             audio_path = f"./audio_responses/{audio_id}.mp3"
 
@@ -464,19 +496,30 @@ def send_proactive_messages(
 
                 audio_response.stream_to_file(audio_path)
 
-            #create_message(db, token.id, transcription_text, gpt_response, audio_id)
-            create_message(db, user.id, query, gpt_response, audio_id, is_proactive=True)
-            
+            # create_message(db, token.id, transcription_text, gpt_response, audio_id)
+            create_message(
+                db, user.id, query, gpt_response, audio_id, is_proactive=True
+            )
+
             while gpt_function:
                 service = return_service(db, user)
                 print(service)
-                result = eval(gpt_function)
-                print(result)
+                gpt_functions = gpt_function.split(";")
+                summary_result = ""
+                for x in gpt_functions:
+                    try:
+                        result = eval(x)
+                    except:
+                        result = str(traceback.format_exc())
+                    print(result)
+                    summary_result += str(result)
+                    summary_result += "\n"
                 if gpt_helper_function:
                     convo.append(
                         {
                             "role": "user",
-                            "content": "Requested Information: " + str(result),
+                            "content": "Requested Information: "
+                            + str(summary_result),
                         }
                     )
                     response = client.chat.completions.create(
@@ -484,7 +527,9 @@ def send_proactive_messages(
                         messages=convo,
                     )
                     gpt_response = (
-                        response.choices[0].message.content.strip("`").strip("json")
+                        response.choices[0]
+                        .message.content.strip("`")
+                        .strip("json")
                     )
                     gpt_response_json = json.loads(gpt_response)
                     gpt_text = gpt_response_json["text"]
@@ -505,7 +550,7 @@ def send_proactive_messages(
                     create_message(
                         db,
                         user.id,
-                        "Requested Information: " + str(result),
+                        "Requested Information: " + str(summary_result),
                         gpt_response,
                         audio_id,
                     )
@@ -520,5 +565,6 @@ def send_proactive_messages(
     finally:
         db.close()
 
+
 # Планирование задачи каждые 1 минуту
-scheduler.add_job(send_proactive_messages, 'interval', minutes=1)
+scheduler.add_job(send_proactive_messages, "interval", minutes=1)
