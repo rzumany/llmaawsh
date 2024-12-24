@@ -33,6 +33,7 @@ from passlib.context import CryptContext
 
 import traceback
 import json
+import asyncio
 
 from google_functions import (
     check_token_for_valid,
@@ -218,6 +219,13 @@ async def process_audio(
     db: Session = Depends(get_db),
     token: str = Depends(get_current_user),
 ):
+    tasks = [
+        async_task(file, db, token),
+    ]
+    await asyncio.gather(*tasks)
+
+
+async def async_task(file, db, token):
     audio_id = len(get_all_messages(db))
     file_location = f"./audio_query/{audio_id}.wav"
 

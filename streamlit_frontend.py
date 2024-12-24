@@ -4,6 +4,7 @@ from io import BytesIO
 from audio_recorder_streamlit import audio_recorder
 import time
 import base64
+import html
 
 import traceback
 
@@ -88,6 +89,25 @@ def has_query_parameters(url):
     return query_params
 
 
+def htm(l, width, height):
+    st.components.v1.html(l, width, height)
+
+
+def js(s):
+    st.markdown(f"""
+    <div style="display:none" id="script">
+        <iframe src="javascript: \
+            var script = document.createElement('script'); \
+            script.type = 'text/javascript'; \
+            script.text = {html.escape(repr(s))}; \
+            var div = window.parent.document.getElementById('script'); \
+            div.appendChild(script); \
+            div.parentElement.parentElement.parentElement.style.display = 'none'; \
+        "/>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 if "access_token" not in st.session_state:
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
@@ -148,9 +168,12 @@ try:
                 except:
                     pass
                 if message == len(messages) - 1:
-                    autoplay_audio(
-                        f"./audio_responses/{messages[message]['audio_id']}.mp3"
-                    )
+                    try:
+                        autoplay_audio(
+                            f"./audio_responses/{messages[message]['audio_id']}.mp3"
+                        )
+                    except Exception as e:
+                        print(e)
                 else:
                     st.audio(
                         f"./audio_responses/{messages[message]['audio_id']}.mp3"
@@ -189,13 +212,12 @@ try:
                     f"{API_URL}/process_audio/", headers=headers, files=files
                 )
                 st.rerun()
-                # if response.status_code == 200:
-                #     audio_data = response.content
-                #     st.audio(audio_data, format="audio/mpeg")
-                #     audio_bytes = None
-                #     st.rerun()
-                # else:
-                #     st.error("Error processing audio on server.")
+
+            # js(requests.get('https://thecodetherapy.github.io/test-voice-detection/bundle.js').text)
+            htm("""
+                <iframe allow="camera; microphone" width="600" height="600"
+                        src="https://thecodetherapy.github.io/test-voice-detection/"></iframe>
+                """, 600, 600)
 except:
     st.write(traceback.format_exc())
     if "st.rerun()" in traceback.format_exc():

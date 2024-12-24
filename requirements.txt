@@ -8,3 +8,10 @@ openai
 python-dotenv
 audio-recorder-streamlit
 google-auth
+python-jose
+passlib
+passlib
+google-auth-oauthlib
+google-api-python-client
+apscheduler
+python-multipart
