@@ -10,6 +10,7 @@ import pytz
 
 import traceback
 import requests
+import logging
 
 from crud import get_user_by_username
 
@@ -26,118 +27,124 @@ TOKEN_URI = google_credentials["token_uri"]
 
 from datetime import datetime, timedelta, date
 
-
-# def list_events(service, max_results=10, start_date=None, end_date=None):
-#     if start_date is None:
-#         start_date = datetime.utcnow().date()
-#     else:
-#         start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
-
-#     if end_date is None:
-#         end_date = start_date + timedelta(days=7)
-#     else:
-#         end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
-
-#     start_date = (
-#         datetime.combine(start_date, datetime.min.time()).isoformat() + "Z"
-#     )
-#     end_date = (
-#         datetime.combine(end_date, datetime.max.time()).isoformat() + "Z"
-#     )
-
-#     events_result = (
-#         service.events()
-#         .list(
-#             calendarId="primary",
-#             timeMin=start_date,
-#             timeMax=end_date,
-#             maxResults=max_results,
-#             singleEvents=True,
-#             orderBy="startTime",
-#         )
-#         .execute()
-#     )
-
-#     events = events_result.get("items", [])
-#     return events
-#     # return print("list_events done")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("google_calendar_agent.log"),
+        logging.StreamHandler(),
+    ],
+)
 
 
 def list_events(service, max_results=10, start=None, end=None):
-    """
-    Получает список предстоящих событий в пределах заданного периода с учетом московского времени.
-    
-    :param service: Google Calendar API service instance.
-    :param max_results: Максимальное количество возвращаемых событий (по умолчанию 10).
-    :param start: Дата и время начала периода поиска событий в формате YYYY-MM-DDTHH:MM:SS.
-    :param end: Дата и время окончания периода поиска событий в формате YYYY-MM-DDTHH:MM:SS.
-    :return: Список событий.
-    """
-    
-    # Определяем московский часовой пояс
-    msk_tz = pytz.timezone("Europe/Moscow")
+    """Получает список предстоящих событий в пределах заданного периода с учетом московского времени."""
+    try:
+        logging.info("Fetching events list.")
+        msk_tz = pytz.timezone("Europe/Moscow")
 
-    # Если start не задан, устанавливаем на текущий момент в Московском времени
-    if start is None:
-        start = datetime.now(msk_tz).isoformat()
+        if start is None:
+            start = datetime.now(msk_tz).isoformat()
 
-    # Если end не задан, устанавливаем на 7 дней позже в Московском времени
-    if end is None:
-        end = (datetime.now(msk_tz) + timedelta(days=7)).isoformat()
+        if end is None:
+            end = (datetime.now(msk_tz) + timedelta(days=7)).isoformat()
 
-    # Конвертируем start и end в строки в формате RFC3339 с часовым поясом
-    start = datetime.fromisoformat(start).astimezone(msk_tz).isoformat()
-    end = datetime.fromisoformat(end).astimezone(msk_tz).isoformat()
+        start = datetime.fromisoformat(start).astimezone(msk_tz).isoformat()
+        end = datetime.fromisoformat(end).astimezone(msk_tz).isoformat()
 
-    # Запрашиваем события из календаря
-    events_result = (
-        service.events()
-        .list(
-            calendarId="primary",
-            timeMin=start,
-            timeMax=end,
-            maxResults=max_results,
-            singleEvents=True,
-            orderBy="startTime",
-            timeZone="Europe/Moscow"  # Добавление временной зоны
+        events_result = (
+            service.events()
+            .list(
+                calendarId="primary",
+                timeMin=start,
+                timeMax=end,
+                maxResults=max_results,
+                singleEvents=True,
+                orderBy="startTime",
+                timeZone="Europe/Moscow",
+            )
+            .execute()
         )
-        .execute()
-    )
 
-    events = events_result.get("items", [])
-    return events
+        events = events_result.get("items", [])
+        logging.info(f"Fetched {len(events)} events.")
+        return events
+    except Exception as e:
+        logging.error(f"Error fetching events: {e}")
+        raise
 
 
 def add_event(service, event):
-    """Add an event to the calendar."""
-    event_result = (
-        service.events().insert(calendarId="primary", body=event).execute()
-    )
-    return event_result
+    """Добавляет новое событие в календарь."""
+    try:
+        logging.info(f"Adding event: {event['summary']}")
+        event_result = (
+            service.events()
+            .insert(
+                calendarId="primary",
+                body=event,
+            )
+            .execute()
+        )
+        logging.info(f"Event added: {event_result['id']}")
+        return event_result
+    except Exception as e:
+        logging.error(f"Error adding event: {e}")
+        raise
 
 
 def delete_event(service, event_id):
-    """Delete an event by its ID."""
-    service.events().delete(calendarId="primary", eventId=event_id).execute()
-    return f"Event {event_id} deleted."
+    """Удаляет событие по его идентификатору."""
+    try:
+        logging.info(f"Deleting event with ID: {event_id}")
+        service.events().delete(
+            calendarId="primary",
+            eventId=event_id,
+        ).execute()
+        logging.info(f"Event {event_id} deleted.")
+        return f"Event {event_id} deleted."
+    except Exception as e:
+        logging.error(f"Error deleting event {event_id}: {e}")
+        raise
 
 
 def edit_event(service, event_id, updated_event):
-    """Edit an existing event."""
-    event_result = (
-        service.events()
-        .update(calendarId="primary", eventId=event_id, body=updated_event)
-        .execute()
-    )
-    return event_result
+    """Редактирует существующее событие."""
+    try:
+        logging.info(f"Editing event {event_id} with new details.")
+        event_result = (
+            service.events()
+            .update(
+                calendarId="primary",
+                eventId=event_id,
+                body=updated_event,
+            )
+            .execute()
+        )
+        logging.info(f"Event {event_id} updated.")
+        return event_result
+    except Exception as e:
+        logging.error(f"Error editing event {event_id}: {e}")
+        raise
 
 
 def show_event(service, event_id):
-    """Show details of a specific event."""
-    event = (
-        service.events().get(calendarId="primary", eventId=event_id).execute()
-    )
-    return event
+    """Показывает детали конкретного события по его идентификатору."""
+    try:
+        logging.info(f"Fetching details for event ID: {event_id}")
+        event = (
+            service.events()
+            .get(
+                calendarId="primary",
+                eventId=event_id,
+            )
+            .execute()
+        )
+        logging.info(f"Event details: {event}")
+        return event
+    except Exception as e:
+        logging.error(f"Error fetching event {event_id}: {e}")
+        raise
 
 
 def check_token_for_valid(db, user):
@@ -146,7 +153,6 @@ def check_token_for_valid(db, user):
     и возвращает URL авторизации, если токен недействителен.
     """
     try:
-        # Создаём объект Credentials из токенов пользователя
         creds = Credentials(
             token=user.access_token,
             refresh_token=user.refresh_token,
@@ -155,7 +161,6 @@ def check_token_for_valid(db, user):
             client_secret=user.client_secret,
         )
 
-        # Проверка и обновление токена
         if creds.expired and creds.refresh_token:
             creds.refresh(google_request())
             user.access_token = creds.token
@@ -168,11 +173,9 @@ def check_token_for_valid(db, user):
             raise ValueError("Token is invalid or missing.")
 
     except Exception as e:
-        # Если токен недействителен или обновить не удалось
         user.need_google_token = True
         db.commit()
 
-        # Создание ссылки авторизации
         flow = InstalledAppFlow.from_client_config(
             {
                 "web": {
@@ -194,78 +197,10 @@ def check_token_for_valid(db, user):
         }
 
 
-# def check_token_for_valid(db, user):
-#     google_token = user.access_token
-#     refresh_token = user.refresh_token
-#     client_id = user.client_id
-#     client_secret = user.client_secret
-
-#     google_load = {
-#         "access_token": google_token,
-#         "refresh_token": refresh_token,
-#         "client_id": client_id,
-#         "client_secret": client_secret,
-#         "token_uri": "https://oauth2.googleapis.com/token",
-#     }
-#     creds = None
-
-#     try:
-#         creds = Credentials.from_authorized_user_info(google_load, SCOPES)
-#         delta = timedelta(hours=4)
-#         creds.expiry += delta
-#         if creds and creds.valid:
-#             print("Token is valid.")
-#             print(creds.to_json())
-#             print(creds.expiry)
-#             user.need_google_token = False
-#         else:
-#             print(creds.to_json())
-#             print(type(creds.expiry))
-#             print("Token is invalid or expired.")
-#             raise Exception("Invalid credentials")
-#     except:
-#         print(traceback.format_exc())
-#         if not creds.valid:
-#             try:
-#                 creds.refresh(google_request())
-
-#                 x = json.dumps(creds)
-#                 x = json.loads(x)
-
-#                 user.access_token = x["access_token"]
-#                 user.refresh_token = x["refresh_token"]
-#                 user.need_google_token = False
-#                 print("Token refreshed successfully.")
-#             except:
-#                 user.need_google_token = True
-#                 flow = InstalledAppFlow.from_client_secrets_file(
-#                     "credentials.json",
-#                     SCOPES,
-#                     redirect_uri="http://localhost:8501",
-#                 )
-
-#                 auth_url, _ = flow.authorization_url(access_type="offline")
-#                 print()
-#                 return {"message": "{}".format(auth_url)}
-#         else:
-#             user.need_google_token = True
-#             flow = InstalledAppFlow.from_client_secrets_file(
-#                 "credentials.json",
-#                 SCOPES,
-#                 redirect_uri="http://localhost:8501",
-#             )
-
-#             auth_url, _ = flow.authorization_url(access_type="offline")
-#             return {"message": "{}".format(auth_url)}
-#     db.commit()
-
-
 def set_google_token_(db, user, google_token) -> None:
     try:
-        # Извлечение authorization code из строки
         auth_code = google_token
 
-        # Обмен authorization code на токены
         token_request_data = {
             "code": auth_code,
             "client_id": CLIENT_ID,
@@ -274,95 +209,29 @@ def set_google_token_(db, user, google_token) -> None:
             "grant_type": "authorization_code",
         }
         token_response = requests.post(TOKEN_URI, data=token_request_data)
-        token_response.raise_for_status()  # Проверка на успешность запроса
+        token_response.raise_for_status()
 
-        # Парсинг ответа с токенами
         tokens = token_response.json()
         access_token = tokens.get("access_token")
         refresh_token = tokens.get("refresh_token")
 
-        # Установка данных в пользователя
         user.client_id = CLIENT_ID
         user.client_secret = CLIENT_SECRET
         user.access_token = access_token
         user.refresh_token = refresh_token
         user.need_google_token = False
 
-        # Сохранение изменений в базе данных
         db.commit()
     except Exception as e:
         print(f"Error setting Google token: {e}")
         db.rollback()
 
 
-# def set_google_token_(db, user, google_token):
-
-#     flow = InstalledAppFlow.from_client_secrets_file(
-#         "credentials.json",
-#         SCOPES,
-#         redirect_uri="http://localhost:8501",
-#     )
-#     creds = flow.fetch_token(code=google_token, access_type="offline")
-#     x = json.dumps(creds)
-#     x = json.loads(x)
-#     if "refresh_token" not in x:
-#         x["refresh_token"] = ""
-
-#     print(x)
-#     x["client_id"] = flow.client_config["client_id"]
-#     x["client_secret"] = flow.client_config["client_secret"]
-
-#     user.access_token = x["access_token"]
-
-#     user.refresh_token = x["refresh_token"]
-#     user.client_id = x["client_id"]
-#     user.client_secret = x["client_secret"]
-#     user.need_google_token = False
-
-#     db.commit()
-
-
-# def return_service(db, user):
-#     google_token = user.access_token
-#     refresh_token = user.refresh_token
-#     client_id = user.client_id
-#     client_secret = user.client_secret
-
-#     google_load = {
-#         "access_token": google_token,
-#         "refresh_token": refresh_token,
-#         "client_id": client_id,
-#         "client_secret": client_secret,
-#         "token_uri": "https://oauth2.googleapis.com/token",
-#     }
-#     creds = None
-
-#     try:
-#         creds = Credentials.from_authorized_user_info(google_load, SCOPES)
-
-#         if creds:
-#             print("Token is valid.")
-#             print(creds.to_json())
-#             user.need_google_token = False
-#             db.commit()
-#             return build("calendar", "v3", credentials=creds)
-#         else:
-#             print("Token is invalid or expired.")
-#             raise Exception("Invalid credentials")
-#     except:
-#         check_token_for_valid(db, user)
-
-
 def return_service(db, user):
-    # Проверить токен
-
     check_token_for_valid(db, user)
-
-    # Если токен всё ещё недействителен, выдать ошибку
     if user.need_google_token:
         raise ValueError("User needs to reauthenticate with Google")
 
-    # Создать объект creds
     creds = Credentials(
         token=user.access_token,
         refresh_token=user.refresh_token,
@@ -370,6 +239,106 @@ def return_service(db, user):
         client_id=user.client_id,
         client_secret=user.client_secret,
     )
-    # Возврат сервиса Google Calendar
+
     service = build("calendar", "v3", credentials=creds)
     return service
+
+
+def list_calendars(service):
+    """
+    Получает список всех доступных календарей.
+
+    :param service: Google Calendar API service instance.
+    :return: Список календарей.
+    """
+    try:
+        logging.info("Fetching list of calendars.")
+        calendars_result = service.calendarList().list().execute()
+        calendars = calendars_result.get("items", [])
+        logging.info(f"Fetched {len(calendars)} calendars.")
+        return calendars
+    except Exception as e:
+        logging.error(f"Error fetching calendars: {e}")
+        raise
+
+
+def get_event_by_summary(service, summary, start=None, end=None):
+    """
+    Получает событие по названию (summary) в заданный период времени.
+
+    :param service: Google Calendar API service instance.
+    :param summary: Название события для поиска.
+    :param start: Дата и время начала периода поиска событий в формате YYYY-MM-DDTHH:MM:SS.
+    :param end: Дата и время окончания периода поиска событий в формате YYYY-MM-DDTHH:MM:SS.
+    :return: Найденное событие или None, если событие не найдено.
+    """
+    try:
+        logging.info(f"Searching for event with summary '{summary}'.")
+        msk_tz = pytz.timezone("Europe/Moscow")
+
+        if start is None:
+            start = datetime.now(msk_tz).isoformat()
+
+        if end is None:
+            end = (datetime.now(msk_tz) + timedelta(days=7)).isoformat()
+
+        start = datetime.fromisoformat(start).astimezone(msk_tz).isoformat()
+        end = datetime.fromisoformat(end).astimezone(msk_tz).isoformat()
+
+        events_result = (
+            service.events()
+            .list(
+                calendarId="primary",
+                q=summary,
+                timeMin=start,
+                timeMax=end,
+                singleEvents=True,
+                orderBy="startTime",
+                timeZone="Europe/Moscow",
+            )
+            .execute()
+        )
+
+        events = events_result.get("items", [])
+        logging.info(
+            f"Found {len(events)} events matching summary '{summary}'."
+        )
+        return events[0] if events else None
+    except Exception as e:
+        logging.error(
+            f"Error searching for event with summary '{summary}': {e}"
+        )
+        raise
+
+
+def list_events_by_calendar(service, calendar_id, max_results=10):
+    """
+    Получает список событий из конкретного календаря.
+
+    :param service: Google Calendar API service instance.
+    :param calendar_id: ID календаря, из которого нужно получить события.
+    :param max_results: Максимальное количество возвращаемых событий (по умолчанию 10).
+    :return: Список событий.
+    """
+    try:
+        logging.info(f"Fetching events from calendar '{calendar_id}'.")
+        events_result = (
+            service.events()
+            .list(
+                calendarId=calendar_id,
+                maxResults=max_results,
+                singleEvents=True,
+                orderBy="startTime",
+            )
+            .execute()
+        )
+        events = events_result.get("items", [])
+        logging.info(
+            f"Fetched {len(events)} events from calendar '{calendar_id}'."
+        )
+        return events
+    except Exception as e:
+        logging.error(
+            f"Error fetching events from calendar '{calendar_id}': {e}"
+        )
+        raise

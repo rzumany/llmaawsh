@@ -547,21 +547,22 @@ def send_proactive_messages(db: Session = get_standart_db()):
                     print(gpt_text)
                     print(gpt_function)
                     audio_id = len(get_all_messages(db))
-                    audio_response = client.audio.speech.create(
-                        model="tts-1",
-                        voice="onyx",
-                        input=gpt_text,
-                    )
-                    audio_path = f"./audio_responses/{audio_id}.mp3"
+                    if gpt_text:
+                        audio_response = client.audio.speech.create(
+                            model="tts-1",
+                            voice="onyx",
+                            input=gpt_text,
+                        )
+                        audio_path = f"./audio_responses/{audio_id}.mp3"
 
-                    audio_response.stream_to_file(audio_path)
-                    create_message(
-                        db,
-                        user.id,
-                        "Requested Information: " + str(summary_result),
-                        gpt_response,
-                        audio_id,
-                    )
+                        audio_response.stream_to_file(audio_path)
+                        create_message(
+                            db,
+                            user.id,
+                            "Requested Information: " + str(summary_result),
+                            gpt_response,
+                            audio_id,
+                        )
                 else:
                     break
 

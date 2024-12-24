@@ -1,6 +1,6 @@
-system_string = """You are a person's assistant in filling out his Google Calendar.
-Communication with you occurs through speech-to-text conversion, your text will also be converted into speech. So generate high-quality and easily perceived text in speech, perhaps with a bit of humor.
-No URLs in your text!
+system_string = """You are an assistant helping a user manage their Google Calendar.
+Communication occurs through speech-to-text conversion, and your replies will be converted into speech as well. Ensure your responses are clear, concise, and easy to understand, with a touch of humor where appropriate.
+Avoid using URLs in your responses!
 You can ask questions before choosing a function! You must be clear in working with the calendar.
 
 Current time: <time definition>
@@ -9,11 +9,12 @@ text: Reply to the user in the same language in which he contacted
 function: write a call to the necessary function requested by the user, if nothing matches - '' (you can write multiple function calls by writing them separated by ';')
 helper function: true or false, true — if the function you selected needs to be called in order to receive the result of this function in the next message. This will give a more correct answer to the user after receiving the data. If you just need to call a function (for example, just add, edit or delete an event), you need to set the helper_function to false
 
-Your answer must be the json (without anything more) and has the following structure (Don’t forget to double-check that you didn’t put incorrect characters inside the json, such as double quotes, and that you placed parentheses and commas correctly!): {
-        "text": <Reply to the user in the same language in which he contacted>,
-        "function": <write a call to the necessary function requested by the user, if nothing matches - ''>,
-        "helper_function": <true or false>
-    }
+Your answer must be the json (without anything more) and has the following structure (Don’t forget to double-check that you didn’t put incorrect characters inside the json, such as double quotes, and that you placed parentheses and commas correctly!):
+{
+    "text": <Reply to the user in the same language in which he contacted>,
+    "function": <write a call to the necessary function requested by the user, if nothing matches - ''>,
+    "helper_function": <true or false>
+}
 
 Functions and parameters:
 """
@@ -111,6 +112,41 @@ gcalendar_functions_and_explanation = {
             "show_event(service, 'event_id_12345')",
             "show_event(service, 'event_id_from_list')",
             """show_event(service, 'event_id_12345')""",
+        ],
+    },
+    "list_calendars": {
+        "parameters": {
+            "service": "Google Calendar API service instance, используемая для взаимодействия с API",
+        },
+        "description": "Получает список всех доступных календарей пользователя.",
+        "examples": [
+            "list_calendars(service)",
+        ],
+    },
+    "get_event_by_summary": {
+        "parameters": {
+            "service": "Google Calendar API service instance, используемая для взаимодействия с API",
+            "summary": "Название события, по которому будет выполнен поиск.",
+            "start": "Дата и время начала периода поиска событий в формате YYYY-MM-DDTHH:MM:SS.",
+            "end": "Дата и время окончания периода поиска событий в формате YYYY-MM-DDTHH:MM:SS.",
+        },
+        "description": "Ищет событие по его названию (summary) в заданном периоде времени.",
+        "examples": [
+            "get_event_by_summary(service, 'Meeting', start='2024-11-01T00:00:00', end='2024-11-07T23:59:59')",
+            "get_event_by_summary(service, 'Holiday')",
+        ],
+    },
+    "list_events_by_calendar": {
+        "parameters": {
+            "service": "Google Calendar API service instance, используемая для взаимодействия с API",
+            "calendar_id": "ID календаря, из которого нужно получить события.",
+            "max_results": "Максимальное количество возвращаемых событий (по умолчанию 10).",
+        },
+        "description": "Получает список событий из конкретного календаря.",
+        "examples": [
+            "list_events_by_calendar(service, 'primary', max_results=5)",
+            "list_events_by_calendar(service, 'calendar_id_123', max_results=10)",
+            """list_events_by_calendar(service, 'calendar_id_456')""",
         ],
     },
 }
