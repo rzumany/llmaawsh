@@ -175,9 +175,12 @@ try:
                     except Exception as e:
                         print(e)
                 else:
-                    st.audio(
-                        f"./audio_responses/{messages[message]['audio_id']}.mp3"
-                    )
+                    try:
+                        st.audio(
+                            f"./audio_responses/{messages[message]['audio_id']}.mp3"
+                        )
+                    except Exception as e:
+                        print(e)
 
             # st.write(messages)
             audio_bytes = None

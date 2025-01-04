@@ -44,6 +44,9 @@ from google_functions import (
     delete_event,
     edit_event,
     show_event,
+    list_calendars,
+    get_event_by_summary,
+    list_events_by_calendar,
 )
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -67,7 +70,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 api_key_openai = os.getenv("OPENAI_API_KEY")
 
-from llm_prompts import full_system_string
+from llm_prompts import full_system_string, answer_structure
 
 system_string = full_system_string
 
@@ -273,7 +276,9 @@ async def async_task(file, db, token):
             convo.append(
                 {"role": "assistant", "content": message.gpt_response}
             )
-    convo.append({"role": "user", "content": transcription_text})
+    convo.append(
+        {"role": "user", "content": transcription_text + answer_structure}
+    )
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -318,7 +323,9 @@ async def async_task(file, db, token):
             convo.append(
                 {
                     "role": "user",
-                    "content": "Requested Information: " + str(summary_result),
+                    "content": "Requested Information: "
+                    + str(summary_result)
+                    + answer_structure,
                 }
             )
             response = client.chat.completions.create(
@@ -437,7 +444,7 @@ def send_proactive_messages(db: Session = get_standart_db()):
             print("---for user in inactive_users---")
 
             audio_id = len(get_all_messages(db))
-            
+
             # Формирование истории сообщений для контекста
             messages = get_messages(db, user)
 
@@ -473,7 +480,8 @@ def send_proactive_messages(db: Session = get_standart_db()):
             # Добавляем вопрос к ChatGPT
 
             query = """Based on the current correspondence, decide whether you need to write a new message to the user. If you consider it necessary to continue the dialogue without the necessary data from google calendar, set helper_function to false, otherwise set helper_function to true. In case helper_function==true there is no need to write any text! For example, call list_events by setting "helper_fucntion" to true, and then I will give you the requested information in the next message."""
-            convo.append({"role": "user", "content": query})
+
+            convo.append({"role": "user", "content": query + answer_structure})
 
             client = get_openai_client()
             print("---client.chat.completions.create---")
@@ -527,7 +535,8 @@ def send_proactive_messages(db: Session = get_standart_db()):
                         {
                             "role": "user",
                             "content": "Requested Information: "
-                            + str(summary_result),
+                            + str(summary_result)
+                            + answer_structure,
                         }
                     )
                     response = client.chat.completions.create(

@@ -75,9 +75,9 @@ gcalendar_functions_and_explanation = {
         },
         "description": "Удаляет событие по его идентификатору.",
         "examples": [
-            "delete_event(service, 'event_id_12345')",
-            "delete_event(service, 'event_id_after_search')",
-            """delete_event(service, events[0]['id'])""",
+            "delete_event(service, <id of event (can be requested by helper_function)>)",
+            "delete_event(service, <id of event (can be requested by helper_function)>)",
+            """delete_event(service, <id of event (can be requested by helper_function)>)""",
         ],
     },
     "edit_event": {
@@ -88,13 +88,13 @@ gcalendar_functions_and_explanation = {
         },
         "description": "Редактирует существующее событие, обновляя информацию по `updated_event`. Нужно указывать все параметры, даже если они остаются без изменений!",
         "examples": [
-            """edit_event(service, 'event_id_12345', {
+            """edit_event(service, <id of event (can be requested by helper_function)>, {
                 "summary": "Updated Meeting",
                 "description": "Updated project discussion details.",
                 "start": {"dateTime": "2024-11-20T14:00:00+03:00", "timeZone": "Europe/Moscow"},
                 "end": {"dateTime": "2024-11-20T15:00:00+03:00", "timeZone": "Europe/Moscow"}
             })""",
-            """edit_event(service, 'event_id_12345', {
+            """edit_event(service, <id of event (can be requested by helper_function)>, {
                 "summary": "Updated Meeting #2",
                 "description": "Updated project discussion details #2.",
                 "start": {"dateTime": "2024-12-20T14:00:00-07:00", "timeZone": "Europe/Moscow"},
@@ -109,9 +109,9 @@ gcalendar_functions_and_explanation = {
         },
         "description": "Показывает детали конкретного события по его идентификатору.",
         "examples": [
-            "show_event(service, 'event_id_12345')",
-            "show_event(service, 'event_id_from_list')",
-            """show_event(service, 'event_id_12345')""",
+            "show_event(service, <id of event (can be requested by helper_function)>)",
+            "show_event(service, <id of event (can be requested by helper_function)>)",
+            "show_event(service, <id of event (can be requested by helper_function)>)",
         ],
     },
     "list_calendars": {
@@ -145,10 +145,18 @@ gcalendar_functions_and_explanation = {
         "description": "Получает список событий из конкретного календаря.",
         "examples": [
             "list_events_by_calendar(service, 'primary', max_results=5)",
-            "list_events_by_calendar(service, 'calendar_id_123', max_results=10)",
-            """list_events_by_calendar(service, 'calendar_id_456')""",
+            "list_events_by_calendar(service, <id of calendar (can be requested by helper_function)>, max_results=10)",
+            "list_events_by_calendar(service, <id of calendar (can be requested by helper_function)>)",
         ],
     },
 }
 
 full_system_string = system_string + str(gcalendar_functions_and_explanation)
+
+answer_structure = """\n
+Your answer must be the json (without anything more) and has the following structure (Don’t forget to double-check that you didn’t put incorrect characters inside the json, such as double quotes, and that you placed parentheses and commas correctly!):
+{
+    "text": <Reply to the user in the same language in which he contacted>,
+    "function": <write a call to the necessary function requested by the user, if nothing matches - ''>,
+    "helper_function": <true or false>
+}"""
