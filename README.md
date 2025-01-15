@@ -10,13 +10,18 @@ We are excited to introduce the Personal Time Manager project, which includes th
 
 Our project will also enable voice commands to add tasks to the calendar. It will provide friendly reminders about potential events that the LLM thinks could be added or that the user might have forgotten. Additionally, there will be functionality for the model to independently create a daily plan, suggesting an optimal schedule for the day.
 
+## About
+
 Technologies: Python, Whisper, TTS, ChatGPT, LLaMA.
 
-We look forward to your feedback and contributions!
+Prerequisites: `credentials.json` from the Gcloud OAuth2 app!
 
-Необходимы
-credentials.json из тестового аккаунта
+## Howto
 
-Запуск
-uvicorn main:app --reload
-streamlit run streamlit_frontend.py
+Init venv: `virtualenv .vemv && source .venv/bin/activate`
+
+Run backend: `uvicorn main:app --reload`
+
+Monkey patch frontend: `cp ./app_static_file_handler.py .venv/lib/python3.12/site-packages/streamlit/web/server/app_static_file_handler.py`
+
+Run frontend: `streamlit run streamlit_frontend.py`
