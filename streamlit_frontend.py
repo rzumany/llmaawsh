@@ -216,14 +216,33 @@ try:
                 )
                 st.rerun()
 
-            # js(requests.get('https://thecodetherapy.github.io/test-voice-detection/bundle.js').text)
+            # js(requests.get('https://thecodetherapy.github.io/test-voice-detection-main/bundle.js').text)
             htm("""
-                <iframe allow="camera; microphone" width="600" height="600"
-                        src="https://thecodetherapy.github.io/test-voice-detection/"></iframe>
+                <div id="app"></div>
+                <script>
+                    fetch('/app/static/test-voice-detection-main/dist/bundle.js')
+                        .then(res => res.text())
+                        .then(txt => {
+                                var js = document.createElement('script');
+                                js.textContent = txt;
+                                document.body.appendChild(js);
+                                setInterval(f => {
+                                    var lastAudio = document.body.getElementsByTagName('audio');
+                                    if (lastAudio.length && !lastAudio[0].dataset.processed) {
+                                        lastAudio[0].dataset.processed = true; 
+                                        alert('New audio aetected!');
+                                        console.log(lastAudio);
+                                    }
+                                }, 500)
+                                alert(1);
+                              })
+                </script>
                 """, 600, 600)
 except:
-    st.write(traceback.format_exc())
-    if "st.rerun()" in traceback.format_exc():
-        st.rerun()
-    else:
-        del st.session_state["access_token"]
+    pass
+    # FIXME: to debug
+    # st.write(traceback.format_exc())
+    # if "st.rerun()" in traceback.format_exc():
+    #     st.rerun()
+    # else:
+    #     del st.session_state["access_token"]
