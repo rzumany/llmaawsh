@@ -6,14 +6,38 @@ from audio_recorder_streamlit import audio_recorder
 import time
 import base64
 import html
-
 import traceback
-
 from urllib.parse import urlparse, parse_qs
 
 API_URL = "http://localhost:8000"
 
-st.set_page_config("LLM agent", layout="wide")
+st.set_page_config(
+    "LLM agent", layout="wide", initial_sidebar_state="expanded"
+)
+
+# Custom CSS
+st.markdown(
+    """
+    <style>
+    .stButton>button {
+        background-color: #4CAF50;
+        color: white;
+        border-radius: 5px;
+        padding: 10px 20px;
+        font-size: 16px;
+    }
+    .stTextInput>div>div>input {
+        border-radius: 5px;
+        padding: 10px;
+    }
+    .stAudio {
+        border-radius: 10px;
+        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 def login(username, password):
@@ -94,34 +118,6 @@ def autoplay_audio(file_path: str):
         )
 
 
-def has_query_parameters(url):
-    parsed_url = urlparse(url)
-    query_params = parse_qs(parsed_url.query)
-    return query_params
-
-
-def htm(l, width, height):
-    st.components.v1.html(l, width, height)
-
-
-def js(s):
-    st.markdown(
-        f"""
-    <div style="display:none" id="script">
-        <iframe src="javascript: \
-            var script = document.createElement('script'); \
-            script.type = 'text/javascript'; \
-            script.text = {html.escape(repr(s))}; \
-            var div = window.parent.document.getElementById('script'); \
-            div.appendChild(script); \
-            div.parentElement.parentElement.parentElement.style.display = 'none'; \
-        "/>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-
-
 controller = CookieController()
 
 cookies = controller.getAll()
@@ -130,6 +126,7 @@ col_1, col_2, col_3 = st.columns(3)
 
 if "cookies_name_access_token" not in controller.getAll():
     with col_2:
+        st.subheader("Login or Register")
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
 
@@ -150,13 +147,12 @@ if "cookies_name_access_token" not in controller.getAll():
 try:
     if "cookies_name_access_token" in controller.getAll():
         with col_1:
-            if st.button("Dislogin"):
+            if st.button("Logout"):
                 controller.remove("cookies_name_access_token")
                 controller.refresh()
         with col_2:
             user = get_user_info_by_token()
-            st.subheader(user["username"])
-            # st.write(user)
+            st.subheader(f"Welcome, {user['username']}!")
 
             res = check_google_token()
 
@@ -221,7 +217,6 @@ try:
                     icon_size="6x",
                     pause_threshold=2.2,
                     key=f"audio_recorder_{len(messages)}",
-                    # energy_threshold=(-1.0, 1.0),
                 )
                 if "audio_bytes" not in st.session_state:
                     st.session_state["audio_bytes"] = ""
@@ -250,37 +245,7 @@ try:
                         files=files,
                     )
                     st.rerun()
-
-                # js(requests.get('https://thecodetherapy.github.io/test-voice-detection-main/bundle.js').text)
-                htm(
-                    """
-                    <div id="app"></div>
-                    <script>
-                        fetch('/app/static/test-voice-detection-main/dist/bundle.js')
-                            .then(res => res.text())
-                            .then(txt => {
-                                    var js = document.createElement('script');
-                                    js.textContent = txt;
-                                    document.body.appendChild(js);
-                                    setInterval(f => {
-                                        var lastAudio = document.body.getElementsByTagName('audio');
-                                        if (lastAudio.length && !lastAudio[0].dataset.processed) {
-                                            lastAudio[0].dataset.processed = true; 
-                                            alert('New audio aetected!');
-                                            console.log(lastAudio);
-                                        }
-                                    }, 500)
-                                    alert(1);
-                                })
-                    </script>
-                    """,
-                    600,
-                    600,
-                )
 except:
     st.write(traceback.format_exc())
     if "st.rerun()" in traceback.format_exc():
         st.rerun()
-    # else:
-    #     del st.session_state["access_token"]
-    #     controller.remove('access_token')
