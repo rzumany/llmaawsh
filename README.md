@@ -27,6 +27,13 @@ venv: `cp ./app_static_file_handler.py .venv/lib/python3.12/site-packages/stream
 or
 conda: 'cp ./app_static_file_handler.py ~/conda/envs/llm_agents/lib/python3.9/site-packages/streamlit/web/server/app_static_file_handler.py'
 
+Create .env:
+
+```
+OPENAI_API_KEY=<OPENAI_API_KEY>
+SECRET_KEY=<SECRET_KEY>
+```
+
 Run frontend: `streamlit run streamlit_frontend.py`
 
 ## WIP
