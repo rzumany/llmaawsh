@@ -1,14 +1,16 @@
-import streamlit as st
-import requests
 from io import BytesIO
-from audio_recorder_streamlit import audio_recorder
 import time
 import base64
 import html
-
-import traceback
-
+import base64
+import wave
+import re
 from urllib.parse import urlparse, parse_qs
+
+import streamlit as st
+from audio_recorder_streamlit import audio_recorder
+import requests
+
 
 API_URL = "http://localhost:8000"
 
@@ -89,25 +91,6 @@ def has_query_parameters(url):
     return query_params
 
 
-def htm(l, width, height):
-    st.components.v1.html(l, width, height)
-
-
-def js(s):
-    st.markdown(f"""
-    <div style="display:none" id="script">
-        <iframe src="javascript: \
-            var script = document.createElement('script'); \
-            script.type = 'text/javascript'; \
-            script.text = {html.escape(repr(s))}; \
-            var div = window.parent.document.getElementById('script'); \
-            div.appendChild(script); \
-            div.parentElement.parentElement.parentElement.style.display = 'none'; \
-        "/>
-    </div>
-    """, unsafe_allow_html=True)
-
-
 if "access_token" not in st.session_state:
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
@@ -145,13 +128,13 @@ try:
                 try:
                     set_google_token(query_params["code"])
                     st.rerun()
-                except:
-                    pass
+                except e:
+                    print(e)
             st.write(query_params)
         else:
             messages = get_messages()
             st.write(messages)
-
+            
             if "len_messages" not in st.session_state:
                 st.session_state["len_messages"] = len(messages)
 
@@ -165,36 +148,46 @@ try:
                     st.audio(
                         f"./audio_query/{messages[message]['audio_id']}.wav"
                     )
-                except:
-                    pass
-                if message == len(messages) - 1:
-                    try:
+                    if message == len(messages) - 1:
                         autoplay_audio(
                             f"./audio_responses/{messages[message]['audio_id']}.mp3"
                         )
-                    except Exception as e:
-                        print(e)
-                else:
-                    st.audio(
-                        f"./audio_responses/{messages[message]['audio_id']}.mp3"
-                    )
+                    else:
+                        st.audio(
+                            f"./audio_responses/{messages[message]['audio_id']}.mp3"
+                        )
+                except Exception as e:
+                    print(e)
 
-            # st.write(messages)
-            audio_bytes = None
-            audio_bytes = audio_recorder(
-                text="Lets talk with AI",
-                recording_color="#e8b62c",
-                neutral_color="#6aa36f",
-                icon_name="user",
-                icon_size="6x",
-                pause_threshold=2.2,
-                key=f"audio_recorder_{len(messages)}",
-                # energy_threshold=(-1.0, 1.0),
-            )
+            from tvdmcomp import tvdmcomp
+            audio_bytes = tvdmcomp(my_input_value="Input")
+            st.write("Result:", audio_bytes)
+
+            # audio_bytes = audio_recorder(
+            #     text="Lets talk with AI",
+            #     recording_color="#e8b62c",
+            #     neutral_color="#6aa36f",
+            #     icon_name="user",
+            #     icon_size="6x",
+            #     pause_threshold=2.2,
+            #     key=f"audio_recorder_{len(messages)}",
+            #     # energy_threshold=(-1.0, 1.0),
+            # )
+
             if "audio_bytes" not in st.session_state:
                 st.session_state["audio_bytes"] = ""
 
             if audio_bytes and audio_bytes != st.session_state["audio_bytes"]:
+                
+                # Extract the base64 part using a regex
+                base64_data = re.search(r'base64,(.*)', audio_bytes).group(1)
+
+                # Decode the base64 string
+                try:
+                    audio_bytes = base64.b64decode(base64_data)
+                except base64.binascii.Error as e:
+                    print(f"Error decoding base64: {e}")
+
                 st.session_state["len_messages"] += 1
                 st.session_state["audio_bytes"] = audio_bytes
                 st.audio(audio_bytes, format="audio/wav")
@@ -213,30 +206,8 @@ try:
                 )
                 st.rerun()
 
-            # js(requests.get('https://thecodetherapy.github.io/test-voice-detection-main/bundle.js').text)
-            htm("""
-                <div id="app"></div>
-                <script>
-                    fetch('/app/static/test-voice-detection-main/dist/bundle.js')
-                        .then(res => res.text())
-                        .then(txt => {
-                                var js = document.createElement('script');
-                                js.textContent = txt;
-                                document.body.appendChild(js);
-                                setInterval(f => {
-                                    var lastAudio = document.body.getElementsByTagName('audio');
-                                    if (lastAudio.length && !lastAudio[0].dataset.processed) {
-                                        lastAudio[0].dataset.processed = true; 
-                                        alert('New audio aetected!');
-                                        console.log(lastAudio);
-                                    }
-                                }, 500)
-                                alert(1);
-                              })
-                </script>
-                """, 600, 600)
-except:
-    pass
+except Exception as e:
+    print(e)
     # FIXME: to debug
     # st.write(traceback.format_exc())
     # if "st.rerun()" in traceback.format_exc():
