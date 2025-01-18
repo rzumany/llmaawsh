@@ -7,7 +7,8 @@ from urllib.parse import urlparse, parse_qs
 
 import streamlit as st
 from streamlit_cookies_controller import CookieController
-from audio_recorder_streamlit import audio_recorder
+from streamlit_js_eval import streamlit_js_eval
+
 import requests
 
 import traceback
@@ -163,7 +164,7 @@ try:
                     }
                     for message in messages
                 ]
-                st.write(written_messages)
+                # st.write(written_messages)
 
                 if "len_messages" not in st.session_state:
                     st.session_state["len_messages"] = len(messages)
@@ -197,12 +198,14 @@ try:
                 from tvdmcomp import tvdmcomp
 
                 audio_bytes = tvdmcomp(my_input_value="Input")
-                base64_data = re.search(r"base64,(.*)", audio_bytes).group(1)
-
                 try:
+                    base64_data = re.search(r"base64,(.*)", audio_bytes).group(
+                        1
+                    )
                     audio_bytes = base64.b64decode(base64_data)
-                except base64.binascii.Error as e:
-                    st.write(f"Error decoding base64: {e}")
+                except:
+                    pass
+                    # st.write(f"Error decoding base64: {e}")
 
                 if "cookies_name_audio_bytes" not in st.session_state:
                     st.session_state["cookies_name_audio_bytes"] = ""
@@ -234,8 +237,10 @@ try:
                         headers=headers,
                         files=files,
                     )
-                    time.sleep(5)
-                    st.rerun()
+                    # time.sleep(7)
+                    streamlit_js_eval(
+                        js_expressions="parent.window.location.reload()"
+                    )
 
 
 except:
