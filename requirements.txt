@@ -15,3 +15,4 @@ google-api-python-client
 apscheduler
 python-multipart
 streamlit-cookies-controller
+streamlit_js_eval 
