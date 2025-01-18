@@ -52,6 +52,8 @@ Run frontend: `streamlit run streamlit_frontend.py`
 - Создайте OAuth Client ID: Нажмите на Create credentials и выберите OAuth client ID.
 
 - Настройте OAuth Client ID: Выберите тип приложения (например, веб-приложение, Android, iOS) и настройте необходимые параметры.
+  
+- В поле Authorized redirect URIs укажите адрес streamlit сервиса http://localhost:8501
 
 - Добавьте свою почту в Test users в окне OAuth consent screen
 
@@ -109,4 +111,9 @@ Google Functions (google_functions.py):
 LLM Prompts (llm_prompts.py):
 
     Содержит шаблоны и структуры для взаимодействия с LLM (Large Language Model)
+
+## Архитектура сервиса
+
+![Arch_diagram](https://github.com/user-attachments/assets/c9819ea2-bcfb-4d3f-a123-8a902aaaf732)
+
 
