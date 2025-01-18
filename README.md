@@ -55,6 +55,8 @@ Run frontend: `streamlit run streamlit_frontend.py`
 
 - Добавьте свою почту в Test users в окне OAuth consent screen
 
+- Подключите Google Calendar API в разделе Enabled APIs & Services
+
 - Загрузите учетные данные: После создания OAuth Client ID нажмите на кнопку Download JSON, чтобы загрузить файл credentials.json.
 
 - Сохраните файл: Сохраните загруженный файл credentials.json в безопасном месте на своем компьютере.
