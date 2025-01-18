@@ -18,7 +18,7 @@ Prerequisites: `credentials.json` from the Gcloud OAuth2 app!
 
 ## Howto
 
-Init venv: `virtualenv .vemv && source .venv/bin/activate`
+Init venv: `virtualenv .venv && source .venv/bin/activate`
 
 Run backend: `uvicorn main:app --reload`
 
