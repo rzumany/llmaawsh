@@ -84,22 +84,78 @@
             }
         }
 
-        setInterval(() => {
-            var audioElement = getLastAudioElement();
-            console.log(audioElement);
+        var observeDOM = (function () {
+            var MutationObserver = window.MutationObserver || window.WebKitMutationObserver;
 
-            if (audioElement) {
-                jsonString = audioElement.src;
-                // var jsonString = convertAudioToJSON(audioElement)
-                //     .then(jsonString => {
-                        sendDataToPython({
-                            value: jsonString,
-                            dataType: "string",
-                        });
-                    // })
-                    // .catch(error => { console.error('Error:', error); });;
+            return function (obj, callback) {
+                if (!obj || obj.nodeType !== 1) {
+                    return;
+                }
+
+                if (MutationObserver) {
+                    // define a new observer
+                    var mutationObserver = new MutationObserver(callback);
+
+                    // have the observer observe for changes in children
+                    mutationObserver.observe(obj, { childList: true, subtree: true });
+                    return mutationObserver;
+                } else if (window.addEventListener) { // browser support fallback
+                    obj.addEventListener('DOMNodeInserted', callback, false);
+                    obj.addEventListener('DOMNodeRemoved', callback, false);
+                }
             }
-        }, 3000);
+        })();
+
+        // Observe the entire body for audio elements:
+        // observeDOM(document.body, function (mutationsList) {
+        //     mutationsList.forEach(mutation => {
+        //         mutation.addedNodes.forEach(node => {
+        //             if (node.nodeName === 'AUDIO') {
+        //                 // console.log('Added audio element:', node);
+        //                 sendDataToPython({
+        //                     value: node.src,
+        //                     dataType: "string",
+        //                 });
+        //             }
+        //         });
+        //     });
+        // });
+
+        function findAudioElements(node) {
+            if (node.nodeName === 'AUDIO') {
+                sendDataToPython({
+                    value: node.src,
+                    dataType: "string",
+                });
+            }
+
+            node.childNodes.forEach(child => findAudioElements(child));
+        }
+
+        observeDOM(document.body, function (mutationsList) {
+            mutationsList.forEach(mutation => {
+                mutation.addedNodes.forEach(node => {
+                    findAudioElements(node);
+                });
+            });
+        });
+
+        // setInterval(() => {
+        //     var audioElement = getLastAudioElement();
+        //     console.log(audioElement);
+
+        //     if (audioElement) {
+        //         jsonString = audioElement.src;
+        //         // var jsonString = convertAudioToJSON(audioElement)
+        //         //     .then(jsonString => {
+        //         sendDataToPython({
+        //             value: jsonString,
+        //             dataType: "string",
+        //         });
+        //         // })
+        //         // .catch(error => { console.error('Error:', error); });;
+        //     }
+        // }, 3000);
     </script>
 
 </body>

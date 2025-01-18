@@ -16,3 +16,5 @@ trash.py
 test.py
 
 *.log
+
+notebooks/*

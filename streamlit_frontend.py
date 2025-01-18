@@ -1,9 +1,7 @@
 from io import BytesIO
 import time
 import base64
-import html
 import base64
-import wave
 import re
 from urllib.parse import urlparse, parse_qs
 
@@ -12,6 +10,9 @@ from streamlit_cookies_controller import CookieController
 from audio_recorder_streamlit import audio_recorder
 import requests
 
+import traceback
+
+# from tvdmcomp import tvdmcomp
 
 API_URL = "http://localhost:8000"
 
@@ -102,7 +103,6 @@ def has_query_parameters(url):
     return query_params
 
 
-
 controller = CookieController()
 
 cookies = controller.getAll()
@@ -128,6 +128,8 @@ if "cookies_name_access_token" not in controller.getAll():
             else:
                 st.error("Invalid credentials")
 
+# st.write(st.session_state)
+
 try:
     if "cookies_name_access_token" in controller.getAll():
         with col_1:
@@ -137,7 +139,6 @@ try:
         with col_2:
             user = get_user_info_by_token()
             st.subheader(user["username"])
-            # st.write(user)
 
             res = check_google_token()
 
@@ -192,38 +193,29 @@ try:
                             )
                         except Exception as e:
                             print(e)
-                
+
                 from tvdmcomp import tvdmcomp
+
                 audio_bytes = tvdmcomp(my_input_value="Input")
-                st.write("Result:", audio_bytes)
-                
-                # audio_bytes = None
-#                 audio_bytes = audio_recorder(
-#                     text="Lets talk with AI",
-#                     recording_color="#e8b62c",
-#                     neutral_color="#6aa36f",
-#                     icon_name="user",
-#                     icon_size="6x",
-#                     pause_threshold=2.2,
-#                     key=f"audio_recorder_{len(messages)}",
-#                     # energy_threshold=(-1.0, 1.0),
-#                 )
-                if "audio_bytes" not in st.session_state:
-                    st.session_state["audio_bytes"] = ""
+                base64_data = re.search(r"base64,(.*)", audio_bytes).group(1)
+
+                try:
+                    audio_bytes = base64.b64decode(base64_data)
+                except base64.binascii.Error as e:
+                    st.write(f"Error decoding base64: {e}")
+
+                if "cookies_name_audio_bytes" not in st.session_state:
+                    st.session_state["cookies_name_audio_bytes"] = ""
 
                 if (
                     audio_bytes
-                    and audio_bytes != st.session_state["audio_bytes"]
+                    and audio_bytes
+                    != st.session_state["cookies_name_audio_bytes"]
                 ):
-                    base64_data = re.search(r'base64,(.*)', audio_bytes).group(1)
-            
-                    try:
-                        audio_bytes = base64.b64decode(base64_data)
-                    except base64.binascii.Error as e:
-                        st.write(f"Error decoding base64: {e}")
-                    
+
                     st.session_state["len_messages"] += 1
-                    st.session_state["audio_bytes"] = audio_bytes
+                    st.session_state["cookies_name_audio_bytes"] = audio_bytes
+
                     st.audio(audio_bytes, format="audio/wav")
 
                     audio_file = BytesIO(audio_bytes)
@@ -236,12 +228,15 @@ try:
                     files = {
                         "file": (audio_file.name, audio_file, "audio/wav")
                     }
+
                     response = requests.post(
                         f"{API_URL}/process_audio/",
                         headers=headers,
                         files=files,
                     )
+                    time.sleep(5)
                     st.rerun()
+
 
 except:
     st.write(traceback.format_exc())

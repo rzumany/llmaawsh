@@ -225,7 +225,12 @@ async def process_audio(
 
     # breakpoint()
 
-    audio_id = len(get_all_messages(db))
+    # audio_id = len(get_all_messages(db))
+    audio_id = max(
+        len(get_all_messages(db)),
+        len(os.listdir("./audio_responses")),
+        len(os.listdir("./audio_query")),
+    )
     file_location = f"./audio_query/{audio_id}.wav"
 
     audio_content = await file.read()
