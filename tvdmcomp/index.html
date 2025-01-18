@@ -1,0 +1,163 @@
+<html>
+
+<body>
+    <div style="position: fixed;"><input hidden id="myinput" value="" /></div>
+    <script>
+        function sendMessageToStreamlitClient(type, data) {
+            var outData = Object.assign({
+                isStreamlitMessage: true,
+                type: type,
+            }, data);
+            window.parent.postMessage(outData, "*");
+        }
+
+        function init() {
+            sendMessageToStreamlitClient("streamlit:componentReady", { apiVersion: 1 });
+        }
+
+        function setFrameHeight(height) {
+            sendMessageToStreamlitClient("streamlit:setFrameHeight", { height: height });
+        }
+
+        // The `data` argument can be any JSON-serializable value.
+        function sendDataToPython(data) {
+            sendMessageToStreamlitClient("streamlit:setComponentValue", data);
+        }
+
+        // Now modify this part of the code to fit your needs:
+        var myInput = document.getElementById("myinput");
+
+        // data is any JSON-serializable value you sent from Python,
+        // and it's already deserialized for you.
+        function onDataFromPython(event) {
+            if (event.data.type !== "streamlit:render") return;
+            myInput.value = event.data.args.my_input_value;  // Access values sent from Python here!
+        }
+
+        myInput.addEventListener("change", function () {
+            sendDataToPython({
+                value: myInput.value,
+                dataType: "json",
+            });
+        })
+
+        // Hook things up!
+        window.addEventListener("message", onDataFromPython);
+        init();
+
+        // Hack to autoset the iframe height.
+        window.addEventListener("load", function () {
+            window.setTimeout(function () {
+                setFrameHeight(document.documentElement.clientHeight)
+            }, 0);
+        });
+
+        // Optionally, if the automatic height computation fails you, give this component a height manually
+        // by commenting out below:
+        //setFrameHeight(200);
+    </script>
+    <div id="app"></div>
+    <script src="/app/static/test-voice-detection-main/dist/bundle.js"></script>
+    <script>
+        async function convertAudioToJSON(audioElement) {
+            // Get the audio data as a Blob
+            var response = await fetch(audioElement.src);
+            var blob = await response.blob();
+
+            // Convert the Blob to an ArrayBuffer, then to an Uint8Array
+            var arrayBuffer = await blob.arrayBuffer();
+            var uint8Array = new Uint8Array(arrayBuffer);
+
+            // Wrap with JSON string
+            var jsonString = JSON.stringify(Array.from(uint8Array));
+            return jsonString;
+        }
+
+        function getLastAudioElement() {
+            var lastAudio = document.body.getElementsByTagName('audio');
+            if (lastAudio.length && !lastAudio[0].dataset.processed) {
+                lastAudio[0].dataset.processed = true;
+                console.log(lastAudio);
+                return lastAudio[0];
+            } else {
+                return undefined;
+            }
+        }
+
+        var observeDOM = (function () {
+            var MutationObserver = window.MutationObserver || window.WebKitMutationObserver;
+
+            return function (obj, callback) {
+                if (!obj || obj.nodeType !== 1) {
+                    return;
+                }
+
+                if (MutationObserver) {
+                    // define a new observer
+                    var mutationObserver = new MutationObserver(callback);
+
+                    // have the observer observe for changes in children
+                    mutationObserver.observe(obj, { childList: true, subtree: true });
+                    return mutationObserver;
+                } else if (window.addEventListener) { // browser support fallback
+                    obj.addEventListener('DOMNodeInserted', callback, false);
+                    obj.addEventListener('DOMNodeRemoved', callback, false);
+                }
+            }
+        })();
+
+        // Observe the entire body for audio elements:
+        // observeDOM(document.body, function (mutationsList) {
+        //     mutationsList.forEach(mutation => {
+        //         mutation.addedNodes.forEach(node => {
+        //             if (node.nodeName === 'AUDIO') {
+        //                 // console.log('Added audio element:', node);
+        //                 sendDataToPython({
+        //                     value: node.src,
+        //                     dataType: "string",
+        //                 });
+        //             }
+        //         });
+        //     });
+        // });
+
+        function findAudioElements(node) {
+            if (node.nodeName === 'AUDIO') {
+                sendDataToPython({
+                    value: node.src,
+                    dataType: "string",
+                });
+            }
+
+            node.childNodes.forEach(child => findAudioElements(child));
+        }
+
+        observeDOM(document.body, function (mutationsList) {
+            mutationsList.forEach(mutation => {
+                mutation.addedNodes.forEach(node => {
+                    findAudioElements(node);
+                });
+            });
+        });
+
+        // setInterval(() => {
+        //     var audioElement = getLastAudioElement();
+        //     console.log(audioElement);
+
+        //     if (audioElement) {
+        //         jsonString = audioElement.src;
+        //         // var jsonString = convertAudioToJSON(audioElement)
+        //         //     .then(jsonString => {
+        //         sendDataToPython({
+        //             value: jsonString,
+        //             dataType: "string",
+        //         });
+        //         // })
+        //         // .catch(error => { console.error('Error:', error); });;
+        //     }
+        // }, 3000);
+    </script>
+
+</body>
+
+</html>
