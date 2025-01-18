@@ -1,21 +1,43 @@
+import streamlit as st
+from streamlit_cookies_controller import CookieController
+import requests
 from io import BytesIO
+from audio_recorder_streamlit import audio_recorder
 import time
 import base64
 import html
-import base64
-import wave
-import re
+import traceback
 from urllib.parse import urlparse, parse_qs
-
-import streamlit as st
-from streamlit_cookies_controller import CookieController
-from audio_recorder_streamlit import audio_recorder
-import requests
-
 
 API_URL = "http://localhost:8000"
 
-st.set_page_config("LLM agent", layout="wide")
+st.set_page_config(
+    "LLM agent", layout="wide", initial_sidebar_state="expanded"
+)
+
+# Custom CSS
+st.markdown(
+    """
+    <style>
+    .stButton>button {
+        background-color: #4CAF50;
+        color: white;
+        border-radius: 5px;
+        padding: 10px 20px;
+        font-size: 16px;
+    }
+    .stTextInput>div>div>input {
+        border-radius: 5px;
+        padding: 10px;
+    }
+    .stAudio {
+        border-radius: 10px;
+        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 def login(username, password):
@@ -96,13 +118,6 @@ def autoplay_audio(file_path: str):
         )
 
 
-def has_query_parameters(url):
-    parsed_url = urlparse(url)
-    query_params = parse_qs(parsed_url.query)
-    return query_params
-
-
-
 controller = CookieController()
 
 cookies = controller.getAll()
@@ -111,6 +126,7 @@ col_1, col_2, col_3 = st.columns(3)
 
 if "cookies_name_access_token" not in controller.getAll():
     with col_2:
+        st.subheader("Login or Register")
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
 
@@ -131,13 +147,12 @@ if "cookies_name_access_token" not in controller.getAll():
 try:
     if "cookies_name_access_token" in controller.getAll():
         with col_1:
-            if st.button("Dislogin"):
+            if st.button("Logout"):
                 controller.remove("cookies_name_access_token")
                 controller.refresh()
         with col_2:
             user = get_user_info_by_token()
-            st.subheader(user["username"])
-            # st.write(user)
+            st.subheader(f"Welcome, {user['username']}!")
 
             res = check_google_token()
 
@@ -192,22 +207,17 @@ try:
                             )
                         except Exception as e:
                             print(e)
-                
-                from tvdmcomp import tvdmcomp
-                audio_bytes = tvdmcomp(my_input_value="Input")
-                st.write("Result:", audio_bytes)
-                
-                # audio_bytes = None
-#                 audio_bytes = audio_recorder(
-#                     text="Lets talk with AI",
-#                     recording_color="#e8b62c",
-#                     neutral_color="#6aa36f",
-#                     icon_name="user",
-#                     icon_size="6x",
-#                     pause_threshold=2.2,
-#                     key=f"audio_recorder_{len(messages)}",
-#                     # energy_threshold=(-1.0, 1.0),
-#                 )
+
+                audio_bytes = None
+                audio_bytes = audio_recorder(
+                    text="Lets talk with AI",
+                    recording_color="#e8b62c",
+                    neutral_color="#6aa36f",
+                    icon_name="user",
+                    icon_size="6x",
+                    pause_threshold=2.2,
+                    key=f"audio_recorder_{len(messages)}",
+                )
                 if "audio_bytes" not in st.session_state:
                     st.session_state["audio_bytes"] = ""
 
@@ -215,13 +225,6 @@ try:
                     audio_bytes
                     and audio_bytes != st.session_state["audio_bytes"]
                 ):
-                    base64_data = re.search(r'base64,(.*)', audio_bytes).group(1)
-            
-                    try:
-                        audio_bytes = base64.b64decode(base64_data)
-                    except base64.binascii.Error as e:
-                        st.write(f"Error decoding base64: {e}")
-                    
                     st.session_state["len_messages"] += 1
                     st.session_state["audio_bytes"] = audio_bytes
                     st.audio(audio_bytes, format="audio/wav")
@@ -242,11 +245,7 @@ try:
                         files=files,
                     )
                     st.rerun()
-
 except:
     st.write(traceback.format_exc())
     if "st.rerun()" in traceback.format_exc():
         st.rerun()
-    # else:
-    #     del st.session_state["access_token"]
-    #     controller.remove('access_token')
