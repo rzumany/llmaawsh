@@ -22,7 +22,10 @@ Init venv: `virtualenv .vemv && source .venv/bin/activate`
 
 Run backend: `uvicorn main:app --reload`
 
-Monkey patch frontend: `cp ./app_static_file_handler.py .venv/lib/python3.12/site-packages/streamlit/web/server/app_static_file_handler.py`
+Monkey patch frontend:  
+venv: `cp ./app_static_file_handler.py .venv/lib/python3.12/site-packages/streamlit/web/server/app_static_file_handler.py`  
+or
+conda: 'cp ./app_static_file_handler.py ~/conda/envs/llm_agents/lib/python3.9/site-packages/streamlit/web/server/app_static_file_handler.py'
 
 Run frontend: `streamlit run streamlit_frontend.py`
 
